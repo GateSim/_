@@ -1,16 +1,16 @@
 {
   "files": {
-    "main.css": "/GateSim/static/css/main.9e31c50c.css",
-    "main.js": "/GateSim/static/js/main.c8fa1b48.js",
-    "static/js/453.2d2ddec2.chunk.js": "/GateSim/static/js/453.2d2ddec2.chunk.js",
-    "static/media/gatesim-logo2.png": "/GateSim/static/media/gatesim-logo2.9487583f8ed15fec8a63.png",
-    "index.html": "/GateSim/index.html",
-    "main.9e31c50c.css.map": "/GateSim/static/css/main.9e31c50c.css.map",
-    "main.c8fa1b48.js.map": "/GateSim/static/js/main.c8fa1b48.js.map",
-    "453.2d2ddec2.chunk.js.map": "/GateSim/static/js/453.2d2ddec2.chunk.js.map"
+    "main.css": "/_/static/css/main.9e31c50c.css",
+    "main.js": "/_/static/js/main.9c64d6b3.js",
+    "static/js/453.6a56dd48.chunk.js": "/_/static/js/453.6a56dd48.chunk.js",
+    "static/media/gatesim-logo2.png": "/_/static/media/gatesim-logo2.9487583f8ed15fec8a63.png",
+    "index.html": "/_/index.html",
+    "main.9e31c50c.css.map": "/_/static/css/main.9e31c50c.css.map",
+    "main.9c64d6b3.js.map": "/_/static/js/main.9c64d6b3.js.map",
+    "453.6a56dd48.chunk.js.map": "/_/static/js/453.6a56dd48.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.9e31c50c.css",
-    "static/js/main.c8fa1b48.js"
+    "static/js/main.9c64d6b3.js"
   ]
 }
