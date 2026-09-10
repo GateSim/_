@@ -1,8 +1,8 @@
 {
-  "name": "my-first-react-app",
+  "name": "GateSim",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://Arpit-Shinde.github.io/GateSim",
+  "homepage": "https://GateSim.github.io/_",
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
