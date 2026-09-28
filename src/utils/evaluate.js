@@ -193,6 +193,8 @@ function evaluateCustom(customNode, graph, map) {
   const sourceToIndex = getSourceIndex(extInputs);
   const extConns = customNode.inputs;
 
+  const seedIds = [];
+
   // ---- connect external inputs ----
   for (let i = 0; i < extInputs.length; i++) {
     const ext = extInputs[i];
@@ -213,6 +215,7 @@ function evaluateCustom(customNode, graph, map) {
         ext._carrierId ?? (ext._carrierId = `__ext_${ext.id}_${ext.index}__`);
 
       let carrier = internalMap.get(carrierId);
+      let carrierChanged = false;
 
       if (!carrier) {
         carrier = {
@@ -224,34 +227,44 @@ function evaluateCustom(customNode, graph, map) {
         };
         refGraph.push(carrier);
         internalMap.set(carrierId, carrier);
+        carrierChanged = true;
       } else if (carrier.value[0] !== signal) {
         carrier.value = [signal];
+        carrierChanged = true;
       }
 
       if (internalNode.inputs) {
         const cur = internalNode.inputs[ext.index];
         if (!cur || cur.id !== carrierId) {
           internalNode.inputs[ext.index] = { id: carrierId, index: 0 };
+          carrierChanged = true;
         }
       }
+
+      if (carrierChanged) seedIds.push(internalNode.id);
+
     } else if (internalNode.inputs) {
       const cur = internalNode.inputs[ext.index];
+
       if (cur && cur.id === "__CUSTOM_INPUT__") {
-        cur.value = signal; // reuse object, no allocation
+        if (cur.value !== signal) {
+          cur.value = signal;
+          seedIds.push(internalNode.id);
+        }
       } else {
         internalNode.inputs[ext.index] = {
           id: "__CUSTOM_INPUT__",
           index: 0,
           value: signal
         };
+        seedIds.push(internalNode.id);
       }
     }
   }
 
-  // ---- internal fixed point ----
-  const maxIter = CONSTANTS.MAX_EVALUATION_ITERATIONS;
-  for (let it = 0; it < maxIter; it++) {
-    if (!evaluateGraph(refGraph, internalMap)) break;
+  // ---- incremental internal propagation (only touches the affected region) ----
+  if (seedIds.length > 0) {
+    propagateFrom(refGraph, internalMap, seedIds);
   }
 
   // ---- resolve outputs ----
@@ -427,4 +440,325 @@ export function propagate(graph, id) {
   if (cur.length > 0) {
     console.warn("propagate(): did not settle within propagation limit.");
   }
+}
+
+// Same level-synchronous frontier algorithm as propagate(), but the
+// frontier is seeded directly with node ids that changed (used for
+// CUSTOM-internal graphs, where the "source" is a value baked into
+// another node's inputs array rather than a standalone graph node).
+function propagateFrom(
+  graph,
+  map,
+  seedIds
+) {
+
+  const len =
+    graph.length;
+
+  if (
+    marks.length < len
+  ) {
+    marks =
+      new Uint32Array(
+        len * 2
+      );
+  }
+
+
+  // ----------------------------------------------------------
+  // Build actual internal dependency graph from INPUT refs.
+  //
+  // This does not depend on node.outputs being present in the
+  // saved custom component.
+  // ----------------------------------------------------------
+
+  const internalOutputs =
+    getInternalOutputs(
+      graph
+    );
+
+
+  let cur = [];
+  let nxt = [];
+
+
+  // ----------------------------------------------------------
+  // Seed affected internal nodes.
+  // ----------------------------------------------------------
+
+  let stamp =
+    nextStamp();
+
+
+  for (
+    let i = 0;
+    i < seedIds.length;
+    i++
+  ) {
+
+    const id =
+      seedIds[i];
+
+
+    if (
+      marks[id] !== stamp
+    ) {
+
+      marks[id] =
+        stamp;
+
+      cur.push(
+        id
+      );
+    }
+  }
+
+
+  const MAX_STEPS =
+    Math.max(
+      len + 1,
+      CONSTANTS.MAX_EVALUATION_ITERATIONS * 100
+    );
+
+
+  const resNodes = [];
+  const resVals = [];
+  const resLc = [];
+
+
+  let step =
+    0;
+
+
+  while (
+    cur.length > 0 &&
+    step < MAX_STEPS
+  ) {
+
+    step++;
+
+
+    // ========================================================
+    // PHASE 1
+    //
+    // Evaluate this whole internal frontier against the same
+    // committed state.
+    // ========================================================
+
+    resNodes.length = 0;
+    resVals.length = 0;
+    resLc.length = 0;
+
+
+    for (
+      let i = 0;
+      i < cur.length;
+      i++
+    ) {
+
+      const node =
+        map.get(
+          cur[i]
+        );
+
+
+      if (!node) {
+        continue;
+      }
+
+
+      const val =
+        computeNext(
+          node,
+          graph,
+          map
+        );
+
+
+      const isJK =
+        node.type === "JK";
+
+
+      if (
+        val !== null ||
+        isJK
+      ) {
+
+        resNodes.push(
+          node
+        );
+
+        resVals.push(
+          val
+        );
+
+        resLc.push(
+          isJK
+            ? _lastClock
+            : false
+        );
+      }
+    }
+
+
+    // ========================================================
+    // PHASE 2
+    //
+    // Commit changes and create next frontier.
+    // ========================================================
+
+    nxt.length = 0;
+
+
+    const nextStampValue =
+      nextStamp();
+
+
+    for (
+      let i = 0;
+      i < resNodes.length;
+      i++
+    ) {
+
+      const node =
+        resNodes[i];
+
+
+      if (
+        node.type === "JK"
+      ) {
+
+        node.lastClock =
+          resLc[i];
+      }
+
+
+      const val =
+        resVals[i];
+
+
+      if (
+        val === null
+      ) {
+        continue;
+      }
+
+
+      node.value =
+        val;
+
+
+      // ------------------------------------------------------
+      // Use dependency map constructed from inputs.
+      // ------------------------------------------------------
+
+      const outputs =
+        internalOutputs.get(
+          node.id
+        );
+
+
+      if (!outputs) {
+        continue;
+      }
+
+
+      for (
+        let k = 0;
+        k < outputs.length;
+        k++
+      ) {
+
+        const outputId =
+          outputs[k];
+
+
+        if (
+          marks[outputId] !==
+          nextStampValue
+        ) {
+
+          marks[outputId] =
+            nextStampValue;
+
+          nxt.push(
+            outputId
+          );
+        }
+      }
+    }
+
+
+    const tmp =
+      cur;
+
+    cur =
+      nxt;
+
+    nxt =
+      tmp;
+  }
+
+
+  if (
+    cur.length > 0
+  ) {
+
+    console.warn(
+      "propagateFrom(): custom component did not settle."
+    );
+  }
+}
+
+const internalOutputsCache = new WeakMap();
+
+function getInternalOutputs(refGraph) {
+  let cached = internalOutputsCache.get(refGraph);
+
+  if (
+    cached &&
+    cached.graphLength === refGraph.length
+  ) {
+    return cached.outputs;
+  }
+
+  const outputs = new Map();
+
+  for (const node of refGraph) {
+    if (!node) continue;
+
+    if (!outputs.has(node.id)) {
+      outputs.set(node.id, []);
+    }
+  }
+
+  for (const node of refGraph) {
+    if (!node) continue;
+
+    for (const input of node.inputs ?? []) {
+      if (
+        !input ||
+        input.index === -1 ||
+        input.id === "__CUSTOM_INPUT__"
+      ) {
+        continue;
+      }
+
+      if (!outputs.has(input.id)) {
+        outputs.set(input.id, []);
+      }
+
+      outputs.get(input.id).push(node.id);
+    }
+  }
+
+  internalOutputsCache.set(
+    refGraph,
+    {
+      graphLength: refGraph.length,
+      outputs
+    }
+  );
+
+  return outputs;
 }
