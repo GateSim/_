@@ -1,16 +1,16 @@
 {
   "files": {
     "main.css": "/_/static/css/main.b6ce0e16.css",
-    "main.js": "/_/static/js/main.a8032314.js",
+    "main.js": "/_/static/js/main.acf18836.js",
     "static/js/453.6a56dd48.chunk.js": "/_/static/js/453.6a56dd48.chunk.js",
     "static/media/gatesim-logo2.png": "/_/static/media/gatesim-logo2.9487583f8ed15fec8a63.png",
     "index.html": "/_/index.html",
     "main.b6ce0e16.css.map": "/_/static/css/main.b6ce0e16.css.map",
-    "main.a8032314.js.map": "/_/static/js/main.a8032314.js.map",
+    "main.acf18836.js.map": "/_/static/js/main.acf18836.js.map",
     "453.6a56dd48.chunk.js.map": "/_/static/js/453.6a56dd48.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.b6ce0e16.css",
-    "static/js/main.a8032314.js"
+    "static/js/main.acf18836.js"
   ]
 }
