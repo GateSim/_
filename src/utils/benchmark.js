@@ -1,14 +1,15 @@
-
 import { evaluate } from "./evaluate";
 import { topologicalOrderAndReindex } from "./topologicalSort";
 import * as CONSTANTS from "../constants/constants";
 
 function countPrimitiveNodes(graph) {
   let count = 0;
+
   for (const node of graph) {
     if (node.type === "TEXT") {
-      continue; 
+      continue;
     }
+
     // If it's a custom component, recursively count what's inside it
     if (node.type === "CUSTOM" && Array.isArray(node.ref_graph)) {
       count += countPrimitiveNodes(node.ref_graph);
@@ -17,8 +18,10 @@ function countPrimitiveNodes(graph) {
       count += 1;
     }
   }
+
   return count;
 }
+
 // Runs the evaluator repeatedly and measures performance.
 export function benchmarkCircuit(
   originalGraph,

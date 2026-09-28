@@ -48,6 +48,7 @@ export function useCircuit(
     console.log((performance.now()-start)*1000)
     setGraph(g);
   }
+  
 
   function Add(
     gate,

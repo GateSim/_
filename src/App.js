@@ -9,6 +9,7 @@ import { GateCard } from "./components/gatecard";
 import { getSVGPoint } from "./utils/svgHelpers";
 import { useCircuit } from "./hooks/useCircuit";
 import { AboutModal } from "./components/about_modal";
+import { compactAndReindex } from "./utils/reindex"
 import {
   inputGateRenderList, twoInputGateRenderList,
   threeInputGateRenderList, fourInputGateRenderList,
@@ -555,79 +556,15 @@ function App() {
       ...pastedGraph
     ];
 
-    // ----------------------------------------------------------
-    // Reindex the entire graph.
-    //
-    // This restores the invariant:
-    //
-    //     graph[id] === node
-    //
-    // ----------------------------------------------------------
-
     const [
       newGraph,
-      ,
+      newClockDelays,
       finalIdMap
     ] =
-      topologicalOrderAndReindex(
-        combinedGraph
+      compactAndReindex(
+        combinedGraph,
+        clock_delays
       );
-
-    // ----------------------------------------------------------
-    // Rebuild clock delays.
-    // ----------------------------------------------------------
-
-    const now =
-      performance.now();
-
-    const newClockDelays = [];
-
-    // Existing clocks
-    for (const clock of clock_delays) {
-
-      const newId =
-        finalIdMap.get(
-          clock.id
-        );
-
-      if (newId === undefined) {
-        continue;
-      }
-
-      newClockDelays.push({
-        id: newId,
-        delay: clock.delay,
-        next_delay:
-          now + clock.delay
-      });
-    }
-
-    // Copied clocks
-    for (const clock of copiedClockDelays) {
-
-      const temporaryId =
-        idMap.get(clock.id);
-
-      if (temporaryId === undefined) {
-        continue;
-      }
-
-      const newId =
-        finalIdMap.get(
-          temporaryId
-        );
-
-      if (newId === undefined) {
-        continue;
-      }
-
-      newClockDelays.push({
-        id: newId,
-        delay: clock.delay,
-        next_delay:
-          now + clock.delay
-      });
-    }
 
     // ----------------------------------------------------------
     // Timing signals need the new IDs as well.
@@ -1049,7 +986,7 @@ function App() {
       // =====================================================
 
       const [newGraph2, new_clock_delays, idMap2] =
-        topologicalOrderAndReindex(newGraph);
+        compactAndReindex(newGraph, clock_delays);
 
       remapTimingSignals(idMap2);
 
@@ -1594,17 +1531,10 @@ function App() {
         resetTimingCapture();
 
         // Reindex the loaded graph
-        let [newGraph, newClockDelays] = topologicalOrderAndReindex(loadedGraph);
-        // Rebuild clock delays with fresh next_delay
-        const now = performance.now();
-        const restoredDelays = newClockDelays.map(clock => {
-          const newId = newGraph.find(g => g.id === clock.id)?.id;
-          return {
-            id: newId !== undefined ? newId : clock.id,
-            delay: clock.delay,
-            next_delay: now + clock.delay
-          };
-        });
+        // Reindex the loaded graph. With no oldClockDelays passed,
+        // every clock in the file gets a fresh next_delay — the same
+        // behavior the manual rebuild above used to produce.
+        const [newGraph, restoredDelays] = compactAndReindex(loadedGraph);
 
         // Evaluate the circuit
         for (let i = 0; i < CONSTANTS.MAX_EVALUATION_ITERATIONS; i++) {
@@ -1614,6 +1544,7 @@ function App() {
             break;
           }
         }
+        
 
         // Clear undo/redo on load
         setUndoStack([]);
@@ -1790,7 +1721,7 @@ function App() {
       }
     }
 
-    const [reindexedGraph, , idMap] = topologicalOrderAndReindex(
+    const [reindexedGraph, , idMap] = compactAndReindex(
       abstractedGraph.filter(node => node.type !== "WIRE")
     );
 
