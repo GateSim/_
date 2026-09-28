@@ -995,7 +995,7 @@ function App() {
       // =====================================================
 
       for (let i = 0; i < CONSTANTS.MAX_EVALUATION_ITERATIONS; i++) {
-        const changed = evaluate(newGraph);
+        const changed = evaluate(newGraph2);
 
         if (!changed) {
           break;
@@ -2414,12 +2414,7 @@ function App() {
         <button className="utilities-button" onClick={() => setShowTimingDiagram(v => !v)}>
           {showTimingDiagram ? "HIDE TIMING" : "TIMING DIAGRAM"}
         </button>
-        <button
-          onClick={handleBenchmark}
-          disabled={isBenchmarking}
-        >
-          {isBenchmarking ? "Benchmarking..." : "Benchmark Circuit"}
-        </button>
+    
 
         <button onClick={() => { console.table(graph) }}>print</button>
         <button
