@@ -2,22 +2,35 @@ export function topologicalOrderAndReindex(graph) {
 
     let remaining = graph.map(node => ({
         ...node,
-        inputs: node.inputs.map(input =>
+
+        // Deep-copy inputs
+        inputs: (node.inputs ?? []).map(input =>
             input === null
                 ? null
                 : { ...input }
-        )
-    })); //creates a copy of graph, ... operator copies the top level prop, but if a prop is array, it copies reference instead of creating a copy. so we explicitly overwrite the inputs to create a new copy and not reference. else changing inputs in this "remaining" will make changes in graph as well, which we dont want
+        ),
 
-    const newGraph = []; //to store the newly ordered and re-indexed graph
-    const idMap = new Map(); //to store relation between old ids and new ids. (its like a array of elements of kind oldId->newId)
+        // Deep-copy outputs
+        outputs: (node.outputs ?? []).map(id => id)
+    }));
 
+
+    const newGraph = [];
+    const idMap = new Map();
+
+
+    // ============================================================
     // 1. Add source nodes
+    // ============================================================
+
     for (let i = remaining.length - 1; i >= 0; i--) {
 
         const node = remaining[i];
 
-        if (node.type === "INPUT" || node.type === "CLOCK") {
+        if (
+            node.type === "INPUT" ||
+            node.type === "CLOCK"
+        ) {
 
             const oldId = node.id;
             const newId = newGraph.length;
@@ -25,13 +38,17 @@ export function topologicalOrderAndReindex(graph) {
             idMap.set(oldId, newId);
 
             node.id = newId;
-            newGraph.push(node);
 
+            newGraph.push(node);
             remaining.splice(i, 1);
         }
     }
 
-    // 2. Topological ordering. we loop through the remaining, and check if node's parent is present in new Graph. if yes, remove from remaining and push to new Graph.
+
+    // ============================================================
+    // 2. Topological ordering
+    // ============================================================
+
     let progress = true;
 
     while (remaining.length > 0 && progress) {
@@ -43,7 +60,8 @@ export function topologicalOrderAndReindex(graph) {
             const node = remaining[i];
 
             const allInputsReady = node.inputs.every(input =>
-                input === null || idMap.has(input.id)
+                input === null ||
+                idMap.has(input.id)
             );
 
             if (allInputsReady) {
@@ -54,8 +72,8 @@ export function topologicalOrderAndReindex(graph) {
                 idMap.set(oldId, newId);
 
                 node.id = newId;
-                newGraph.push(node);
 
+                newGraph.push(node);
                 remaining.splice(i, 1);
 
                 progress = true;
@@ -64,7 +82,11 @@ export function topologicalOrderAndReindex(graph) {
         }
     }
 
+
+    // ============================================================
     // 3. Add cyclic nodes
+    // ============================================================
+
     for (const node of remaining) {
 
         const oldId = node.id;
@@ -73,13 +95,22 @@ export function topologicalOrderAndReindex(graph) {
         idMap.set(oldId, newId);
 
         node.id = newId;
+
         newGraph.push(node);
     }
 
-    // 4. Remap input IDs
+
+    // ============================================================
+    // 4. Remap input IDs AND output IDs
+    // ============================================================
+
     for (const node of newGraph) {
 
-        node.inputs = node.inputs.map(input => {
+        // --------------------------------------------------------
+        // Inputs
+        // --------------------------------------------------------
+
+        node.inputs = (node.inputs ?? []).map(input => {
 
             // Disconnected input
             if (input === null) {
@@ -97,9 +128,22 @@ export function topologicalOrderAndReindex(graph) {
             // Invalid / stale connection
             return null;
         });
+
+
+        // --------------------------------------------------------
+        // Outputs
+        // --------------------------------------------------------
+
+        node.outputs = (node.outputs ?? [])
+            .filter(outputId => idMap.has(outputId))
+            .map(outputId => idMap.get(outputId));
     }
 
+
+    // ============================================================
     // 5. Rebuild clock delays
+    // ============================================================
+
     const new_clock_delays = [];
 
     for (const node of newGraph) {
@@ -109,10 +153,12 @@ export function topologicalOrderAndReindex(graph) {
             new_clock_delays.push({
                 id: node.id,
                 delay: node.delay,
-                next_delay: performance.now() + node.delay
+                next_delay:
+                    performance.now() + node.delay
             });
         }
     }
+
 
     return [
         newGraph,

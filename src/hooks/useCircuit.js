@@ -1,8 +1,20 @@
 // hooks/useCircuit.js
-import { evaluate } from "../utils/evaluate";
-import { topologicalOrderAndReindex } from "../utils/topologicalSort";
+
+import {
+  evaluate,
+  propagate
+} from "../utils/evaluate";
+
+import {
+  topologicalOrderAndReindex
+} from "../utils/topologicalSort";
+
 import * as CONSTANTS from "../constants/constants";
-import { benchmarkCircuit } from "../utils/benchmark";
+
+import {
+  benchmarkCircuit
+} from "../utils/benchmark";
+
 
 export function useCircuit(
   graph,
@@ -19,10 +31,18 @@ export function useCircuit(
   onReindex
 ) {
 
+
+  // ============================================================
+  // INPUT COUNT
+  // ============================================================
+
   function getInputCount(gate) {
+
     switch (gate) {
+
       case "NOT":
         return 1;
+
       case "AND":
       case "OR":
       case "NAND":
@@ -51,181 +71,551 @@ export function useCircuit(
         return 4;
 
       case "MUX4":
-        return 6
+        return 6;
 
       default:
         return 0;
     }
   }
 
-  // ─── TOGGLE ───
+
+  // ============================================================
+  // TOGGLE
+  // ============================================================
+
   function toggle(id) {
-    let newGraph = structuredClone(graph);
-    //do not push into undo stack here, its unneccessary
 
-    newGraph[id].value = [!newGraph[id].value[0]];
+    // ----------------------------------------------------------
+    // Reindex graph first.
+    // ----------------------------------------------------------
 
-    for (let i = 0; i < CONSTANTS.MAX_EVALUATION_ITERATIONS; i++) {
-    const changed = evaluate(newGraph);
+    const [
+      newgraph,
+      new_clock_delays,
+      idMap
+    ] =
+      topologicalOrderAndReindex(
+        graph
+      );
 
-    if (!changed) {
-        break;
-    }
-}
 
-    setGraph(newGraph);
-  }
+    // ----------------------------------------------------------
+    // Find new ID after reindexing.
+    // ----------------------------------------------------------
 
-  // ─── ADD GATE ───
-  function Add(gate, wireData = null, inputpin = null, clockDelay = null, customComponent = null) {
-    if (!gate) return;
+    const newId =
+      idMap.get(id);
 
-    // CLOCK needs user input first
-    if (gate === "CLOCK" && clockDelay === null) {
-      setClockDelayInput("");
-      setShowClockWindow(true);
+
+    if (
+      newId === undefined
+    ) {
+
+      console.warn(
+        `toggle(): Node ${id} disappeared during reindex.`
+      );
+
       return;
     }
 
-    addToUndoStack(graph, clock_delays);
+
+    const node =
+      newgraph[newId];
+
+
+    if (!node) {
+      return;
+    }
+
+
+    // ----------------------------------------------------------
+    // Toggle source.
+    //
+    // We do NOT evaluate the source itself.
+    //
+    // propagate() starts from its already-changed outputs.
+    // ----------------------------------------------------------
+
+    node.value = [
+      !(node.value?.[0] ?? false)
+    ];
+
+
+    // ----------------------------------------------------------
+    // Propagate only through the affected region.
+    // ----------------------------------------------------------
+
+    propagate(
+      newgraph,
+      newId
+    );
+
+
+    // ----------------------------------------------------------
+    // Save result.
+    // ----------------------------------------------------------
+
+    setGraph(
+      newgraph
+    );
+
+
+    setClockDelays(
+      new_clock_delays
+    );
+
+
+    if (onReindex) {
+      onReindex(
+        idMap
+      );
+    }
+  }
+
+
+  // ============================================================
+  // ADD GATE
+  // ============================================================
+
+  function Add(
+    gate,
+    wireData = null,
+    inputpin = null,
+    clockDelay = null,
+    customComponent = null
+  ) {
+
+    if (!gate) {
+      return;
+    }
+
+
+    // ==========================================================
+    // CLOCK
+    // ==========================================================
+
+    if (
+      gate === "CLOCK" &&
+      clockDelay === null
+    ) {
+
+      setClockDelayInput(
+        ""
+      );
+
+      setShowClockWindow(
+        true
+      );
+
+      return;
+    }
+
+
+    addToUndoStack(
+      graph,
+      clock_delays
+    );
+
 
     let newGate;
 
+
+    // ==========================================================
+    // CLOCK
+    // ==========================================================
+
     if (gate === "CLOCK") {
 
-      let delay = Number(clockDelay);
+      const delay =
+        Number(clockDelay);
+
 
       newGate = {
-        type: gate,
-        id: graph.length,
-        value: [false],
+
+        type:
+          gate,
+
+        id:
+          graph.length,
+
+        value: [
+          false
+        ],
+
         inputs: [],
-        x: view.x + view.width / 2,
-        y: view.y + view.height / 2,
-        z: Math.max(0, ...graph.map(node => node.z ?? 0)) + 1,
-        rotation: 0,
-        delay: delay
-      };
 
-      let newdelay = {
-        id: graph.length,
-        delay: delay,
-        next_delay: performance.now() + delay
-      };
+        outputs: [],
 
-      setClockDelays((prev) => [...prev, newdelay]);
-    }
+        x:
+          view.x +
+          view.width / 2,
 
-    else if (gate === "WIRE") {
+        y:
+          view.y +
+          view.height / 2,
 
-      newGate = {
-        type: gate,
-        id: graph.length,
-        value: [false],
-        path: wireData.path,
-        inputs: [{ id: wireData.inputId, index: wireData.outputIndex }]
-      };
-      console.log("else if of wire entered")
+        z:
+          Math.max(
+            0,
+            ...graph.map(
+              node =>
+                node.z ?? 0
+            )
+          ) + 1,
 
-    }
-
-    else if (gate === "CUSTOM") {
-
-      if (!customComponent) return;
-      let n = new Set(customComponent.inputs.map(x => x.sourceId)).size;
-
-      newGate = {
-        type: "CUSTOM",
-        id: graph.length,
-
-        name: customComponent.name,
-
-        inputs: Array(n).fill(null),
-        ext_inputs: structuredClone(customComponent.inputs),
-
-        value: customComponent.outputs.map(() => false),
-
-        ext_outputs: structuredClone(customComponent.outputs),
-        ref_graph: structuredClone(customComponent.ref_graph),
-
-        x: view.x + view.width / 2,
-        y: view.y + view.height / 2,
-
-        z: Math.max(
+        rotation:
           0,
-          ...graph.map(node => node.z ?? 0)
-        ) + 1,
 
-        rotation: 0
+        delay:
+          delay
       };
 
-      console.table(newGate)
+
+      const newdelay = {
+
+        id:
+          graph.length,
+
+        delay:
+          delay,
+
+        next_delay:
+          performance.now() +
+          delay
+      };
+
+
+      setClockDelays(
+        prev => [
+          ...prev,
+          newdelay
+        ]
+      );
     }
-    else if (gate === "TEXT") {
+
+
+    // ==========================================================
+    // WIRE
+    // ==========================================================
+
+    else if (
+      gate === "WIRE"
+    ) {
+
       newGate = {
-        type: "TEXT",
-        id: graph.length,
-        text: "Label",
-        x: view.x + view.width / 2,
-        y: view.y + view.height / 2,
-        z: Math.max(0, ...graph.map(node => node.z ?? 0)) + 1,
-        rotation: 0,
-        // TEXT has no inputs/outputs
+
+        type:
+          gate,
+
+        id:
+          graph.length,
+
+        value: [
+          false
+        ],
+
+        outputs: [],
+
+        path:
+          wireData.path,
+
+        inputs: [
+          {
+            id:
+              wireData.inputId,
+
+            index:
+              wireData.outputIndex
+          }
+        ]
+      };
+
+
+      console.log(
+        "else if of wire entered"
+      );
+    }
+
+
+    // ==========================================================
+    // CUSTOM
+    // ==========================================================
+
+    else if (
+      gate === "CUSTOM"
+    ) {
+
+      if (!customComponent) {
+        return;
+      }
+
+
+      const n =
+        new Set(
+          customComponent.inputs.map(
+            x =>
+              x.sourceId
+          )
+        ).size;
+
+
+      newGate = {
+
+        type:
+          "CUSTOM",
+
+        id:
+          graph.length,
+
+        outputs: [],
+
+        name:
+          customComponent.name,
+
+        inputs:
+          Array(n).fill(null),
+
+        ext_inputs:
+          structuredClone(
+            customComponent.inputs
+          ),
+
+        value:
+          customComponent.outputs.map(
+            () => false
+          ),
+
+        ext_outputs:
+          structuredClone(
+            customComponent.outputs
+          ),
+
+        ref_graph:
+          structuredClone(
+            customComponent.ref_graph
+          ),
+
+        x:
+          view.x +
+          view.width / 2,
+
+        y:
+          view.y +
+          view.height / 2,
+
+        z:
+          Math.max(
+            0,
+            ...graph.map(
+              node =>
+                node.z ?? 0
+            )
+          ) + 1,
+
+        rotation:
+          0
+      };
+
+
+      console.table(
+        newGate
+      );
+    }
+
+
+    // ==========================================================
+    // TEXT
+    // ==========================================================
+
+    else if (
+      gate === "TEXT"
+    ) {
+
+      newGate = {
+
+        type:
+          "TEXT",
+
+        id:
+          graph.length,
+
+        text:
+          "Label",
+
+        x:
+          view.x +
+          view.width / 2,
+
+        y:
+          view.y +
+          view.height / 2,
+
+        z:
+          Math.max(
+            0,
+            ...graph.map(
+              node =>
+                node.z ?? 0
+            )
+          ) + 1,
+
+        rotation:
+          0,
+
         inputs: [],
-        value: [],
+
+        value: []
       };
     }
+
+
+    // ==========================================================
+    // NORMAL GATE
+    // ==========================================================
 
     else {
 
       newGate = {
-        type: gate,
-        id: graph.length,
-        value: [false],
-        inputs: Array(getInputCount(gate)).fill(null),
-        x: view.x + view.width / 2,
-        y: view.y + view.height / 2,
-        z: Math.max(0, ...graph.map(node => node.z ?? 0)) + 1,
-        rotation: 0,
+
+        type:
+          gate,
+
+        id:
+          graph.length,
+
+        value: [
+          false
+        ],
+
+        outputs: [],
+
+        inputs:
+          Array(
+            getInputCount(
+              gate
+            )
+          ).fill(null),
+
+        x:
+          view.x +
+          view.width / 2,
+
+        y:
+          view.y +
+          view.height / 2,
+
+        z:
+          Math.max(
+            0,
+            ...graph.map(
+              node =>
+                node.z ?? 0
+            )
+          ) + 1,
+
+        rotation:
+          0
       };
     }
 
-    // CONNECT HERE, BEFORE setGraph()
-    let oldId = newGate.id;
+
+    // ==========================================================
+    // CONNECT
+    // ==========================================================
+
+    const oldId =
+      newGate.id;
+
+
+    if (wireData) {
+
+      graph[
+        wireData.inputId
+      ].outputs.push(
+        newGate.id
+      );
+    }
+
 
     if (inputpin) {
 
-      graph[inputpin.gateId].inputs[inputpin.gateIndex] = {
-        id: newGate.id,
-        index: 0
+      graph[
+        inputpin.gateId
+      ].inputs[
+        inputpin.gateIndex
+      ] = {
+
+        id:
+          newGate.id,
+
+        index:
+          0
       };
 
-      console.log("if inputpin entered");
 
-      let current_input = graph[inputpin.gateId];
+      newGate.outputs.push(
+        inputpin.gateId
+      );
 
-      if (current_input.type === "CUSTOM") {
 
-        let nullCount = 0;
+      console.log(
+        "if inputpin entered"
+      );
 
-        for (let node of current_input.ref_graph) {
 
-          if (!node.inputs)
+      const current_input =
+        graph[
+          inputpin.gateId
+        ];
+
+
+      if (
+        current_input.type ===
+        "CUSTOM"
+      ) {
+
+        let nullCount =
+          0;
+
+
+        for (
+          const node of
+          current_input.ref_graph
+        ) {
+
+          if (!node.inputs) {
             continue;
+          }
 
-          for (let i = 0; i < node.inputs.length; i++) {
 
-            if (node.inputs[i] === null) {
+          for (
+            let i = 0;
+            i < node.inputs.length;
+            i++
+          ) {
 
-              if (nullCount === inputpin.gateIndex) {
+            if (
+              node.inputs[i] === null
+            ) {
+
+              if (
+                nullCount ===
+                inputpin.gateIndex
+              ) {
 
                 node.inputs[i] = {
-                  id: newGate.id,
-                  index: 0
+
+                  id:
+                    newGate.id,
+
+                  index:
+                    0
                 };
+
 
                 break;
               }
+
 
               nullCount++;
             }
@@ -234,51 +624,151 @@ export function useCircuit(
       }
     }
 
-    let [newGraph, new_clock_delays, idMap] =
-      topologicalOrderAndReindex([...graph, newGate]);
 
-    for (let i = 0; i < CONSTANTS.MAX_EVALUATION_ITERATIONS; i++) {
-    const changed = evaluate(newGraph);
+    // ==========================================================
+    // REINDEX
+    // ==========================================================
 
-    if (!changed) {
+    const [
+      newGraph,
+      new_clock_delays,
+      idMap
+    ] =
+      topologicalOrderAndReindex(
+        [
+          ...graph,
+          newGate
+        ]
+      );
+
+
+    // ==========================================================
+    // INITIAL SETTLE AFTER EDIT
+    //
+    // This is only for establishing values after a circuit
+    // modification. Runtime propagation uses propagate().
+    // ==========================================================
+
+    for (
+      let i = 0;
+      i <
+      CONSTANTS.MAX_EVALUATION_ITERATIONS;
+      i++
+    ) {
+
+      const changed =
+        evaluate(
+          newGraph
+        );
+
+
+      if (!changed) {
         break;
+      }
     }
-}
 
-    let newId = idMap.get(oldId);
-    if (onReindex) onReindex(idMap);
 
-    setGraph(newGraph);
-    setClockDelays(new_clock_delays);
+    const newId =
+      idMap.get(
+        oldId
+      );
 
-    console.log(`in Add(), newId = ${newId}`);
+
+    if (onReindex) {
+      onReindex(
+        idMap
+      );
+    }
+
+
+    setGraph(
+      newGraph
+    );
+
+
+    setClockDelays(
+      new_clock_delays
+    );
+
+
+    console.log(
+      `in Add(), newId = ${newId}`
+    );
+
 
     return newId;
   }
 
 
-  // ─── CLEAR GRAPH ───
+  // ============================================================
+  // CLEAR GRAPH
+  // ============================================================
+
   function clearGraph() {
-    if (graph.length === 0) {
-      alert("Circuit is already empty.");
+
+    if (
+      graph.length === 0
+    ) {
+
+      alert(
+        "Circuit is already empty."
+      );
+
       return;
     }
 
-    if (window.confirm("Are you sure you want to clear the circuit?")) {
-      addToUndoStack(graph, clock_delays);
-      setGraph([]);
-      setClockDelays([]);
+
+    if (
+      window.confirm(
+        "Are you sure you want to clear the circuit?"
+      )
+    ) {
+
+      addToUndoStack(
+        graph,
+        clock_delays
+      );
+
+
+      setGraph(
+        []
+      );
+
+
+      setClockDelays(
+        []
+      );
     }
   }
-    // ─── BENCHMARK ───
-  function runBenchmark(options = {}) {
-    return benchmarkCircuit(graph, options);
+
+
+  // ============================================================
+  // BENCHMARK
+  // ============================================================
+
+  function runBenchmark(
+    options = {}
+  ) {
+
+    return benchmarkCircuit(
+      graph,
+      options
+    );
   }
 
-    return {
+
+  // ============================================================
+  // RETURN
+  // ============================================================
+
+  return {
+
     toggle,
+
     Add,
+
     clearGraph,
+
     runBenchmark
   };
 }

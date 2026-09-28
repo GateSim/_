@@ -26,7 +26,7 @@ export function benchmarkCircuit(
 ) {
   const {
     warmupRuns = 10,
-    benchmarkRuns = 1000,
+    benchmarkRuns = 100,
     evaluateIterations = CONSTANTS.MAX_EVALUATION_ITERATIONS
   } = options;
 
