@@ -11,6 +11,8 @@ export const PIN_RADIUS = 5;
 export const GATE_STROKE_WIDTH = 0.7;
 export const GATE_STROKE_COLOR = "#000000";
 export const GATE_FILL_COLOR = "#ffffff"
+export const CUSTOM_GATE_BODY_TEXT_COLOR = "#2f2f2f"
+export const CUSTOM_GATE_PINS_TEXT_COLOR = "#686868"
 
 export const NAND_PIN_RADIUS = 3
 
@@ -31,7 +33,7 @@ export const TOGGLE_CAPSULE_RADIUS = 10
 export let WIRE_COLOR = "#838383"
 export const WIRE_STROKE_WIDTH = 3
 
-export const MAX_EVALUATION_ITERATIONS = 10;
+export const MAX_EVALUATION_ITERATIONS = 5;
 export const MIN_FRAME_TIME = 50;
 
 
@@ -44,7 +46,10 @@ export const CANVAS_START = { x: 150, y: 10 }
 export let CANVAS_BACKGROUND = "#211f1f"
 export let GATE_CARD_BACKGROUND = "#110f0f"
 
-// constants/constants.js
+export const SELECTION_FILL_COLOR = "rgba(66, 153, 225, 0.15)";
+export const SELECTION_STROKE_COLOR = "#4299e1";
+
+
 
 // JK Flip-Flop specific constants
 export const JK_INPUT_PINS = {
@@ -94,3 +99,10 @@ export function toggleTheme(document, theme) {
     );
   }
 }
+
+export const TIMING_MAX_SAMPLES = 4000;   // cap history length; oldest samples evicted
+export const TIMING_ROW_HEIGHT = 36;      // px per signal row
+export const TIMING_PX_PER_MS = 0.4;      // horizontal scale of the waveform
+export const TIMING_AXIS_HEIGHT = 24;     // px reserved for the time axis row
+export const TIMING_LOW_COLOR = "#8a8a8a";
+export const TIMING_GRID_COLOR = "#3a3a3a";

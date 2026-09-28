@@ -61,7 +61,7 @@ export const xor_extra_curve_path = `
 `;
 
 
-export function Gate({ node, toggle, didDrag, startDrag, setoutputpin, setinputpin, setSelectedGate, isSelected, selectWire = null }) {
+export function Gate({ node, toggle, didDrag, startDrag, setoutputpin, setinputpin, setSelectedGate, isSelected, selectWire = null,onEditText=null }) {
 
   const gateClass = `actual-gate ${isSelected ? 'selected-gate' : ''}`;
   const rot = node.rotation ?? 0;
@@ -2401,6 +2401,246 @@ export function Gate({ node, toggle, didDrag, startDrag, setoutputpin, setinputp
       </g>
     );
   }
+
+  else if (node.type === "CUSTOM") {
+
+    const inputCount = node.inputs?.length ?? 0;
+    const outputCount = node.value?.length ?? 0;
+
+    const height = Math.max(
+      CONSTANTS.GATE_HEIGHT,
+      Math.max(inputCount, outputCount) * 20
+    );
+
+    return (
+      <g
+        transform={`translate(${node.x}, ${node.y}) rotate(${rot})`}
+        className={gateClass}
+      >
+
+        {/* Component body */}
+        <rect
+          x={0}
+          y={0}
+          width={CONSTANTS.GATE_WIDTH}
+          height={height}
+          fill={CONSTANTS.GATE_FILL_COLOR}
+          stroke={CONSTANTS.GATE_STROKE_COLOR}
+          strokeWidth={CONSTANTS.GATE_STROKE_WIDTH}
+          onMouseDown={(e) => startDrag(e, node.id)}
+          onClick={() => {
+            setSelectedGate({ id: node.id });
+            return true;
+          }}
+        />
+
+        {/* Component name */}
+        <text
+          x={CONSTANTS.GATE_WIDTH / 2}
+          y={height / 2}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill={CONSTANTS.CUSTOM_GATE_BODY_TEXT_COLOR}
+          fontSize="12"
+          pointerEvents="none"
+        >
+          {node.name}
+        </text>
+
+        {/* Input pins */}
+        {/* Input pins */}
+        {node.inputs?.map((_, i) => {
+
+          const y =
+            height / 2 +
+            (i - (inputCount - 1) / 2) * 20;
+
+          // Build visible input pin names from unique sourceIds.
+          // ext_inputs may contain multiple entries for the same
+          // sourceId when one external input fans out internally.
+          const inputPinNames = [];
+          const seenSources = new Set();
+
+          for (const entry of node.ext_inputs ?? []) {
+            if (seenSources.has(entry.sourceId)) continue;
+
+            seenSources.add(entry.sourceId);
+            inputPinNames.push(entry.name ?? "");
+          }
+
+          const pinName =
+            inputPinNames[i] || `I${i}`;
+
+          return (
+            <g key={`input-${i}`}>
+
+              {/* Input pin label */}
+              {/* Input pin label */}
+              <text
+                x={0}
+                y={y}
+                textAnchor="start"
+                dominantBaseline="middle"
+                fill={CONSTANTS.CUSTOM_GATE_PINS_TEXT_COLOR}
+                fontSize="10"
+                pointerEvents="none"
+              >
+                {pinName}
+              </text>
+
+              <line
+                x1={0}
+                y1={y}
+                x2={CONSTANTS.INPUT_PIN_X}
+                y2={y}
+                stroke={CONSTANTS.GATE_STROKE_COLOR}
+                strokeWidth={CONSTANTS.GATE_STROKE_WIDTH}
+              />
+
+              <circle
+                className="pin"
+                onMouseUp={(e) => {
+                  e.stopPropagation();
+                }}
+                onClick={(e) => {
+                  setinputpin(
+                    node.id,
+                    i,
+                    outPos(
+                      CONSTANTS.INPUT_PIN_X,
+                      y
+                    ).x,
+                    outPos(
+                      CONSTANTS.INPUT_PIN_X,
+                      y
+                    ).y
+                  );
+                }}
+                cx={CONSTANTS.INPUT_PIN_X}
+                cy={y}
+                r={CONSTANTS.PIN_RADIUS}
+                fill={CONSTANTS.GATE_FILL_COLOR}
+                stroke={CONSTANTS.GATE_STROKE_COLOR}
+                strokeWidth={CONSTANTS.GATE_STROKE_WIDTH}
+              />
+
+            </g>
+          );
+        })}
+
+        {/* Output pins */}
+        {node.value?.map((_, i) => {
+
+          const y =
+            height / 2 +
+            (i - (outputCount - 1) / 2) * 20;
+
+          const pinName =
+            node.ext_outputs?.[i]?.name ?? `O${i + 1}`;
+
+          return (
+            <g key={`output-${i}`}>
+
+              {/* Output pin label */}
+              <text
+                x={CONSTANTS.GATE_WIDTH}
+                y={y}
+                textAnchor="end"
+                dominantBaseline="middle"
+                fill={CONSTANTS.CUSTOM_GATE_PINS_TEXT_COLOR}
+                fontSize="10"
+                pointerEvents="none"
+              >
+                {pinName}
+              </text>
+
+              <line
+                x1={CONSTANTS.GATE_WIDTH}
+                y1={y}
+                x2={
+                  CONSTANTS.GATE_WIDTH -
+                  CONSTANTS.INPUT_PIN_X
+                }
+                y2={y}
+                stroke={CONSTANTS.GATE_STROKE_COLOR}
+                strokeWidth={CONSTANTS.GATE_STROKE_WIDTH}
+              />
+
+              <circle
+                className="pin"
+                onMouseUp={(e) => {
+                  e.stopPropagation();
+                }}
+                onClick={(e) => {
+                  const p = outPos(
+                    CONSTANTS.GATE_WIDTH -
+                    CONSTANTS.INPUT_PIN_X,
+                    y
+                  );
+
+                  setoutputpin(
+                    node.id,
+                    i,
+                    p.x,
+                    p.y
+                  );
+                }}
+                cx={
+                  CONSTANTS.GATE_WIDTH -
+                  CONSTANTS.INPUT_PIN_X
+                }
+                cy={y}
+                r={CONSTANTS.PIN_RADIUS}
+                fill={CONSTANTS.GATE_FILL_COLOR}
+                stroke={CONSTANTS.GATE_STROKE_COLOR}
+                strokeWidth={CONSTANTS.GATE_STROKE_WIDTH}
+              />
+
+            </g>
+          );
+        })}
+
+      </g>
+    );
+  }
+  else if (node.type === "TEXT") {
+  return (
+    <g
+      transform={`translate(${node.x}, ${node.y}) rotate(${rot})`}
+      className={gateClass}
+      onMouseDown={(e) => startDrag(e, node.id)}
+      onDoubleClick={(e) => {
+  e.stopPropagation();
+  onEditText?.(node.id, node.text);
+}}
+      onClick={() => {
+        setSelectedGate({ id: node.id });
+        return true;
+      }}
+    >
+      <text
+        x={0}
+        y={0}
+        fill={CONSTANTS.GATE_STROKE_COLOR}
+        fontSize={16}
+        fontFamily="inherit"
+        style={{ userSelect: "none", pointerEvents: "none" }}
+      >
+        {node.text || "Label"}
+      </text>
+
+      {/* invisible hitbox for easier clicking */}
+      <rect
+        x={-4}
+        y={-16}
+        width={Math.max(40, (node.text?.length ?? 4) * 9)}
+        height={22}
+        fill="transparent"
+        pointerEvents="all"
+      />
+    </g>
+  );
+}
 
   return null;
 }
