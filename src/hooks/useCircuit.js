@@ -79,98 +79,81 @@ export function useCircuit(
   }
 
 
-  // ============================================================
-  // TOGGLE
-  // ============================================================
+// ============================================================
+// TOGGLE + SIMULATION BENCHMARK
+// ============================================================
 
-  function toggle(id) {
+function toggle(id) {
 
-    // ----------------------------------------------------------
-    // Reindex graph first.
-    // ----------------------------------------------------------
+  const node = graph[id];
 
-    const [
-      newgraph,
-      new_clock_delays,
-      idMap
-    ] =
-      topologicalOrderAndReindex(
-        graph
-      );
-
-
-    // ----------------------------------------------------------
-    // Find new ID after reindexing.
-    // ----------------------------------------------------------
-
-    const newId =
-      idMap.get(id);
-
-
-    if (
-      newId === undefined
-    ) {
-
-      console.warn(
-        `toggle(): Node ${id} disappeared during reindex.`
-      );
-
-      return;
-    }
-
-
-    const node =
-      newgraph[newId];
-
-
-    if (!node) {
-      return;
-    }
-
-
-    // ----------------------------------------------------------
-    // Toggle source.
-    //
-    // We do NOT evaluate the source itself.
-    //
-    // propagate() starts from its already-changed outputs.
-    // ----------------------------------------------------------
-
-    node.value = [
-      !(node.value?.[0] ?? false)
-    ];
-
-
-    // ----------------------------------------------------------
-    // Propagate only through the affected region.
-    // ----------------------------------------------------------
-
-    propagate(
-      newgraph,
-      newId
+  if (!node) {
+    console.warn(
+      `toggle(): Node ${id} not found.`
     );
-
-
-    // ----------------------------------------------------------
-    // Save result.
-    // ----------------------------------------------------------
-
-    setGraph(
-      newgraph
-    );
-
-
-    setClockDelays(
-      new_clock_delays
-    );
-
-
-    if (onReindex) {
-      onReindex(
-        idMap
-      );
-    }
+    return;
   }
+
+  // ----------------------------------------------------------
+  // Toggle source
+  // ----------------------------------------------------------
+
+  node.value = [
+    !(node.value?.[0] ?? false)
+  ];
+
+  // ----------------------------------------------------------
+  // Benchmark ONLY simulation
+  // ----------------------------------------------------------
+
+  const start =
+    performance.now();
+
+  propagate(
+    graph,
+    id
+  );
+
+  const end =
+    performance.now();
+
+  const propagationTime =
+    end - start;
+
+  // ----------------------------------------------------------
+  // Benchmark output
+  // ----------------------------------------------------------
+
+  console.log(
+    "========== GateSim Simulation Benchmark =========="
+  );
+
+  console.log(
+    "Nodes:",
+    graph.length
+  );
+
+  console.log(
+    "Toggled Node:",
+    id
+  );
+
+  console.log(
+    "Propagation Time:",
+    propagationTime*1000,
+    "ms"
+  );
+
+  console.log(
+    "=================================================="
+  );
+
+  // ----------------------------------------------------------
+  // Save mutated graph
+  // ----------------------------------------------------------
+
+  setGraph(graph);
+}
 
 
   // ============================================================
