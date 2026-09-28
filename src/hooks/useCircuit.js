@@ -33,15 +33,19 @@ export function useCircuit(
   onReindex
 ) {
 
-  
+
   // Toggle a source. No sort, no reindex: structure did not change.
   function toggle(id) {
     const g = graph.map(n => ({ ...n }));
     const node = g[id];
     if (!node) return;
 
+    
+
     node.value = [!(node.value?.[0] ?? false)];
+    let start = performance.now()
     propagate(g, id);
+    console.log((performance.now()-start)*1000)
     setGraph(g);
   }
 
