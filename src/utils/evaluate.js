@@ -432,6 +432,10 @@ export function propagate(graph, id) {
       }
     }
 
+    // Log the state of both frontiers right before they swap.
+    // Using the spread operator [...] ensures the console captures the arrays 
+    // exactly as they are at this step, rather than updating to their final empty states.
+    
     const tmp = cur;
     cur = nxt;
     nxt = tmp;
@@ -440,6 +444,8 @@ export function propagate(graph, id) {
   if (cur.length > 0) {
     console.warn("propagate(): did not settle within propagation limit.");
   }
+
+  return step
 }
 
 // Same level-synchronous frontier algorithm as propagate(), but the
