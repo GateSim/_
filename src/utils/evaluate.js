@@ -398,7 +398,8 @@ export function propagate(graph, id) {
       if (!node) continue;
 
       const val = computeNext(node, graph, null);
-      evaluates++;
+      if (node.type !=="WIRE") evaluates++;
+      
       const isJK = node.type === "JK";
 
       if (val !== null || isJK) {

@@ -22,6 +22,7 @@ import { RenderUncommitedWire } from "./components/wire";
 import { RenderCUSTOM } from "./svg/gates_svg";
 import { isNodeFullyContained } from "./utils/selectionBox";
 import { TimingDiagram, defaultSignalLabel } from "./components/timingDiagram";
+import { propagate } from "./utils/evaluate";
 import "./components/timingDiagram.css";
 
 function App() {
@@ -1032,6 +1033,7 @@ function App() {
 
       const newGraph = structuredClone(graph);
       let changed = false;
+      const changedClockIds = [];
 
       const newClockDelays = clocks.map(clock => {
 
@@ -1048,6 +1050,7 @@ function App() {
           clockNode.value[0] = !clockNode.value[0];
 
           changed = true;
+          changedClockIds.push(clock.id);
 
           console.log("tick");
 
@@ -1062,12 +1065,12 @@ function App() {
 
       if (!changed) return;
 
-      for (let i = 0; i < CONSTANTS.MAX_EVALUATION_ITERATIONS; i++) {
-        const changed = evaluate(newGraph);
+      // Propagate only from clocks that toggled.
+      for (const clockId of changedClockIds) {
+        let [steps, evaluates] = propagate(newGraph, clockId);
+        console.log("Propagation steps:", steps);
+    console.log("Number of evaluations:", evaluates);
 
-        if (!changed) {
-          break;
-        }
       }
 
       graphRef.current = newGraph;
@@ -1544,7 +1547,7 @@ function App() {
             break;
           }
         }
-        
+
 
         // Clear undo/redo on load
         setUndoStack([]);
@@ -2414,7 +2417,7 @@ function App() {
         <button className="utilities-button" onClick={() => setShowTimingDiagram(v => !v)}>
           {showTimingDiagram ? "HIDE TIMING" : "TIMING DIAGRAM"}
         </button>
-    
+
 
         <button onClick={() => { console.table(graph) }}>print</button>
         <button
