@@ -383,6 +383,7 @@ export function propagate(graph, id) {
   const resLc = [];
 
   let step = 0;
+  let evaluates = 0;
 
   while (cur.length > 0 && step < MAX_STEPS) {
     step++;
@@ -397,6 +398,7 @@ export function propagate(graph, id) {
       if (!node) continue;
 
       const val = computeNext(node, graph, null);
+      evaluates++;
       const isJK = node.type === "JK";
 
       if (val !== null || isJK) {
@@ -445,7 +447,7 @@ export function propagate(graph, id) {
     console.warn("propagate(): did not settle within propagation limit.");
   }
 
-  return step
+  return [step, evaluates]
 }
 
 // Same level-synchronous frontier algorithm as propagate(), but the

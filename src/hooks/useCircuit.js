@@ -44,8 +44,9 @@ export function useCircuit(
 
     node.value = [!(node.value?.[0] ?? false)];
     let start = performance.now()
-    let steps = propagate(g, id);
+    let [steps, evaluates] = propagate(g, id);
     console.log("Propagation steps:", steps);
+    console.log("Number of evaluations:", evaluates);
     console.log("Propagation time:", (performance.now() - start)*1000, "µs");
     setGraph(g);
   }
